@@ -1,0 +1,65 @@
+
+pipeline {
+    agent any
+
+    environment {
+        // Replace with your SonarCloud project key
+        SONAR_PROJECT_KEY = '<YOUR_SONARCLOUD_PROJECT_KEY>'
+        // Replace with your SonarCloud organization key (often your username or org name)
+        SONAR_ORGANIZATION_KEY = '<YOUR_SONARCLOUD_ORGANIZATION_KEY>'
+        // This is the ID of the Secret text credential you created in Jenkins for your SonarCloud token
+        SONAR_AUTH_TOKEN_ID = 'sonarcloud-token' 
+    }
+
+    stages {
+        stage('Checkout Source Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/<YOUR_GITHUB_USERNAME>/<YOUR_REPO_NAME>.git' // Replace with your repo URL
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    // Use the SonarQube Scanner tool configured in Jenkins
+                    def scannerHome = tool 'SonarScanner' // This is the name you gave in "Global Tool Configuration"
+
+                    withSonarQubeEnv('SonarCloud') { // This is the name you gave to your SonarCloud server in "Configure System"
+                        sh "${scannerHome}/bin/sonar-scanner " +
+                           "-Dsonar.projectKey=${SONAR_PROJECT_KEY} " +
+                           "-Dsonar.organization=${SONAR_ORGANIZATION_KEY} " +
+                           "-Dsonar.sources=. " + // Analyze current directory
+                           "-Dsonar.host.url=https://sonarcloud.io " +
+                           "-Dsonar.login=${env.SONAR_AUTH_TOKEN_ID}" // Use the credential ID
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate Check') {
+            steps {
+                // Wait for the SonarCloud Quality Gate status
+                // This step is important to ensure your code meets quality standards before deployment
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Build/Package (Optional for HTML)') {
+            // For a simple HTML site, "build" often means just copying files.
+            // For more complex projects (e.g., React, Angular), this would involve `npm run build` etc.
+            steps {
+                echo 'HTML website is ready for deployment (no build step needed).'
+                // archiveArtifacts artifacts: '**/*.html', fingerprint: true // If you want to archive the HTML
+            }
+        }
+
+        stage('Deploy (Dummy)') {
+            steps {
+                echo 'Deploying simple HTML website...'
+                echo 'In a real-world scenario, this would deploy to a web server (e.g., Nginx, Apache, S3).'
+            }
+        }
+    }
+}
